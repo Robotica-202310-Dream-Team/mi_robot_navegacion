@@ -3,6 +3,9 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from proyecto_interfaces.srv import StartNavigationTest
 from sensor_msgs.msg import Image
+from std_msgs.msg import String, Float32MultiArray
+from nav_msgs.msg import Odometry
+
 
 class Navigation_test(Node):
 
@@ -11,6 +14,14 @@ class Navigation_test(Node):
         self.subscription_camera_1 = self.create_subscription(Image,'map/camera_1',self.callback_camera_1, 10)
         self.subscription_camera_2 = self.create_subscription(Image,'map/camera_2',self.callback_camera_2, 10)
         self.srv = self.create_service(StartNavigationTest, 'group_12/start_navigation_test_srv', self.read_txt_callback)
+        self.publisher_ = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 10)
+        self.msg = Float32MultiArray()
+        self.msg.data = [0.0, 0.0, 0.0, 0.0]
+        qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+                                        history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                        depth=1)
+        self.subPose = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pose, qos_profile=qos_policy)
+
         print('Servicio para la prueba de navegación listo')
         
 
@@ -23,6 +34,12 @@ class Navigation_test(Node):
         return response
 
 
+    def subscriber_callback_pose(self, msg):
+        self.pos_x = round (msg.pose.pose.position.x*100,2 )
+        self.pos_y = round (msg.pose.pose.position.y *100,2 )
+        self.pos_z = round (msg.pose.pose.position.z *100,2 )
+        print (f"x = {self.pos_x} y = {self.pos_y} z = {self.pos_y}")
+        
 
 def main(args=None):
     rclpy.init(args=args)
