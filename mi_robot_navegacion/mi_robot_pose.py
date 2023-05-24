@@ -4,10 +4,9 @@ import time
 import serial
 import json
 from rclpy.node import Node
-#from std_msgs.msg import String
 #from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-#from std_msgs.msg import String, Float32MultiArray
+from std_msgs.msg import String, Float32MultiArray, Bool
 
 # Este codigo sirve para la comunicacion serial entre un Arduino/ESP y una Raspberry. Es un nodo de ros2 que se subscribe 
 # al tópico cmd_Vel y lee el mensaje para pasarlo luego al Arduino/ESP. Los mensajes son tipo String. 
@@ -25,12 +24,14 @@ class navegacion(Node):
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
-        self.sub = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback, qos_profile=qos_policy)
+        self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
+        self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 10)
+        self.publisher_ = self.create_publisher(Bool, 'llego', 10)
+
         #self.subscription = self.create_subscription(Odometry, 'camera/pose/sample', self.listener_callback, 10)
         
 
-    
-    def subscriber_callback(self, msg):
+    def subscriber_callback_pos_actual(self, msg):
         #self.pos_x = round (msg.twist.twist.linear.x / 100, 2)
         #self.pos_y = round (msg.twist.twist.linear.y / 100, 2)
         #self.pos_z = round (msg.twist.twist.linear.z / 100, 2)
