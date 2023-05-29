@@ -20,28 +20,67 @@ class navegacion(Node):
 
     def __init__(self):
         print ("Incia el nodo")
+
+        # PID constants
+        self.K_rho = 0.15 
+        self.K_alpha = 0.5 
+        self.K_beta = 0.0
+
+        # Geometrical conditions
+        self.wheel_radius = 6.5/100
+        self.wheel_separation = 19.5/100
+
+        # Variables for monitor the position error
+        self.errorPos_x = []
+        self.errorPos_y = [] 
+        self.errorTheta = []
+
+        # Variables for monitor the hostorical position of the robot
+        self.historicalPose_x = []
+        self.historicalPose_y = [] 
+        self.historicalPose_Theta = []
+
         super().__init__('mi_robot_pose')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
-        self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
+        
         self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 10)
+        self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
         self.publisher_ = self.create_publisher(Bool, 'llego', 10)
 
         #self.subscription = self.create_subscription(Odometry, 'camera/pose/sample', self.listener_callback, 10)
-        
-
-    def subscriber_callback_pos_actual(self, msg):
-        #self.pos_x = round (msg.twist.twist.linear.x / 100, 2)
-        #self.pos_y = round (msg.twist.twist.linear.y / 100, 2)
-        #self.pos_z = round (msg.twist.twist.linear.z / 100, 2)
-        #debug = msg.pose.pose.position.
-        #print (f"debug: {debug}")
-        self.pos_x = round (msg.pose.pose.position.x*100,2 )
-        self.pos_y = round (msg.pose.pose.position.y *100,2 )
-        self.pos_z = round (msg.pose.pose.position.z *100,2 )
-        print (f"x = {self.pos_x} y = {self.pos_y} z = {self.pos_y}")
     
+    def subscriber_callback_pos_actual(self, msg):
+        # Alineation flag
+        self.align_flag = False
+
+        # Actual position of the robot
+        self.actual_pos_x = round (msg.pose.pose.position.x*100,2 )
+        self.actual_pos_y = round (msg.pose.pose.position.y *100,2 )
+        self.actual_pos_Theta = round (msg.pose.pose.orientation.z *100,2 )
+
+        # Historical position append
+        self.historicalPose_x.append(self.actual_pos_x)
+        self.historicalPose_y.append(self.actual_pos_y)
+        self.historicalPose_Theta.append(self.actual_pos_Theta)
+        self.position_error_new()
+        
+    
+    def subscriber_callback_pos_final(self, msg):
+        # Position goal
+        self.final_pose_x = msg.data[0]
+        self.final_pose_y = msg.data[1]
+        self.final_pose_Theta = msg.data[2]
+
+    
+    def position_error_new(self):
+        # Error calculation and append
+        self.errorPos_x.append(self.final_pose_x - self.actual_pos_x[-1])
+        self.errorPos_y.append(self.final_pose_y - self.actual_pos_y[-1])
+        self.errorTheta.append(self.final_pose_Theta - self.actual_pos_Theta[-1])
+        print(self.errorPos_x, self.errorPos_y, self.errorTheta)
+
 
 def main(args=None):
     rclpy.init(args=args)

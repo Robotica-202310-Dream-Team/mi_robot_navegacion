@@ -12,8 +12,8 @@ class Navigation_test(Node):
 
     def __init__(self):
         super().__init__('navigation_test')
-        self.subscription_camera_1 = self.create_subscription(Image,'map/camera_1',self.callback_camera_1, 10)
-        self.subscription_camera_2 = self.create_subscription(Image,'map/camera_2',self.callback_camera_2, 10)
+        # self.subscription_camera_1 = self.create_subscription(Image,'map/camera_1',self.callback_camera_1, 10)
+        # self.subscription_camera_2 = self.create_subscription(Image,'map/camera_2',self.callback_camera_2, 10)
         self.srv = self.create_service(StartNavigationTest, 'group_12/start_navigation_test_srv', self.callback_service)
         self.publisher_pos_final = self.create_publisher(Float32MultiArray, 'posicion_final', 10)
         print('Servicio para la prueba de navegación listo')
@@ -27,7 +27,7 @@ class Navigation_test(Node):
         response.answer = "El servicio para la prueba de navegación ha sido aprobado"
         self.msg = Float32MultiArray()
         self.msg.data = [float(x_goal), float(y_goal)]
-        self.publisher_pos_final(self.msg)
+        self.publisher_pos_final.publish(self.msg)
         return response
 
         
