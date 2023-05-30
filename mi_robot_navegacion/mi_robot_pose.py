@@ -37,7 +37,6 @@ class navegacion(Node):
         self.errorTheta = []
         self.llegoPosFinal = False
 
-
         # Variables for monitor the hostorical position of the robot
         self.historicalPose_x = []
         self.historicalPose_y = [] 
@@ -68,14 +67,22 @@ class navegacion(Node):
 
         self.actualGrado2 = self.euler_from_quaternion(self.actual_pos_ThetaX,self.actual_pos_ThetaY,self.actual_pos_ThetaZ,self.actual_pos_ThetaW)
         self.actualGrado = self.actualGrado2[2]*180/(np.pi)
+
+        # Control variables actualization
+        self.rho = np.sqrt(self.final_pose_x**2 + self.final_pose_y**2)
+        self.alpha = -1*self.actualGrado + np.arctan2(self.final_pose_y, self.final_pose_x)
+        self.beta = self.errorTheta[-1]
+
         # Historical position append
         self.historicalPose_x.append(self.actual_pos_x)
         self.historicalPose_y.append(self.actual_pos_y)
         self.historicalPose_Theta.append(self.actualGrado)
         if self.llegoPosFinal == True:
             self.position_error_new()
+
+        if not self.align_flag:
+            d=0
         
-    
     def subscriber_callback_pos_final(self, msg):
         # Position goal
         self.final_pose_x = msg.data[0]/4
@@ -104,17 +111,20 @@ class navegacion(Node):
         t0 = +2.0 * (w * x + y * z)
         t1 = +1.0 - 2.0 * (x * x + y * y)
         roll_x = math.atan2(t0, t1)
-     
+
         t2 = +2.0 * (w * y - z * x)
         t2 = +1.0 if t2 > +1.0 else t2
         t2 = -1.0 if t2 < -1.0 else t2
         pitch_y = math.asin(t2)
-     
+
         t3 = +2.0 * (w * z + x * y)
         t4 = +1.0 - 2.0 * (y * y + z * z)
         yaw_z = math.atan2(t3, t4)
-     
+
         return float(roll_x), float(pitch_y), float(yaw_z) # in radians
+    
+    def align_robot():
+
 
 def main(args=None):
     rclpy.init(args=args)
