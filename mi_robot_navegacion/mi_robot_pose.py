@@ -21,13 +21,15 @@ class navegacion(Node):
 
     def __init__(self):
         print ("Inicia el nodo que da la posicion de la camara en tiempo real")
-
+        self.max = 1
         # PID constants
-        self.err = 0.001
+        self.err_ang = 28
+        self.err_dist = 5
         self.K_rho = 0.15 
         self.K_alpha = 0.5 
         self.K_beta = 0.0
 
+        self.banderaOrientacion = False
         # Geometrical conditions
         self.wheel_radius = 6.5/100
         self.wheel_separation = 19.5/100
@@ -35,23 +37,28 @@ class navegacion(Node):
         # Variables for monitor the position error
         self.errorPos_x = []
         self.errorPos_y = [] 
-        self.errorTheta = []
+        self.errorTheta = [0]
         self.llegoPosFinal = False
 
         # Variables for monitor the hostorical position of the robot
         self.historicalPose_x = []
         self.historicalPose_y = [] 
         self.historicalPose_Theta = []
-
+        self.final_pose_x = 1
+        self.final_pose_y = 1
+        self.final_pose_Theta = 1
+        self.actualGrado = 0
         super().__init__('mi_robot_pose')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
         
-        self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 10)
+        self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 50)
         self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
-        self.publisher_ = self.create_publisher(Bool, 'llego', 10)
-        self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 10)
+        self.publisher_ = self.create_publisher(Bool, 'llego', 50)
+        self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
+        self.msg1 = Float32MultiArray()
+        self.control_variables(0)
 
         #self.subscription = self.create_subscription(Odometry, 'camera/pose/sample', self.listener_callback, 10)
     
@@ -66,7 +73,10 @@ class navegacion(Node):
 
         self.actualGrado2 = self.euler_from_quaternion(self.actual_pos_ThetaX,self.actual_pos_ThetaY,self.actual_pos_ThetaZ,self.actual_pos_ThetaW)
         self.actualGrado = self.actualGrado2[2]*180/(np.pi)
-
+        print("x_actual: "+ str(self.actual_pos_x) +"\n")
+        print("y_actual: "+ str(self.actual_pos_y)+"\n") 
+        print("ThetaZ_actual: "+ str(self.actualGrado)+"\n")
+        
         # Historical position append
         self.historicalPose_x.append(self.actual_pos_x)
         self.historicalPose_y.append(self.actual_pos_y)
@@ -75,81 +85,95 @@ class navegacion(Node):
         # Historical error calculation
         if self.llegoPosFinal == True:
             self.position_error_new()
-            self.control_variables(0)
-
+            print(f"Alpha =  {self.alpha}  rho= {self.rho}" )
+            
             # Orientation control
-            while self.alpha > self.err:
+            if  abs(self.alpha) > self.err_ang:
+                self.position_error_new() 
+                self.banderaOrientacion = False
                 self.control_variables(1)
                 self.orientation_goal()
-                self.conversionTwistPwm()
-                msg1 = Float32MultiArray()
-                msg1.data = [self.PWML, self.PWMR]
-                self.publisher_vel.publish(msg1)
-
+                #self.conversionTwistPwm()
+                if abs(self.alpha) <= self.err_ang:
+                    print("Ya se oriento")
+                    self.PWMR = self.PWML
+                    self.PWML = -self.PWMR
+                    self.msg1.data = [float(self.PWML), float(self.PWMR)]
+                    self.publisher_vel.publish(self.msg1)
+                    #time.sleep(2)
+                    self.banderaOrientacion = True
+                self.msg1.data = [float(self.PWML), float(self.PWMR)]
+                self.publisher_vel.publish(self.msg1)
+                
             # Linear control
-            while self.rho > self.err:
-                if self.alpha > self.err:
-                    break
+            if self.rho > self.err_dist and self.banderaOrientacion == True:
+                print("Entro al control de distancia")
+                if abs(self.alpha) > self.err_ang:
+                    self.banderaOrientacion = False
                 else:
+                    self.position_error_new()
                     self.control_variables(2)
                     self.linear_trayectory()
-                    self.conversionTwistPwm()
-                    msg1 = Float32MultiArray()
-                    msg1.data = [self.PWML, self.PWMR]
-                    self.publisher_vel.publish(msg1)
+                    #self.conversionTwistPwm()
+                    self.msg1.data = [self.PWML, self.PWMR]
+                    self.publisher_vel.publish(self.msg1)
+            elif self.rho <= self.err_dist:
+                self.banderaOrientacion = False
+                self.PWML = 0.0
+                self.PWMR = 0.0
+                self.msg1.data = [float(self.PWML), float(self.PWMR)]
+                self.publisher_vel.publish(self.msg1)
+                print("El robot ha llegado al destino")
+
     
     def control_variables(self, instance):
         # Control variables actualization
         if instance == 0:
-            self.rho = np.sqrt(self.final_pose_x**2 + self.final_pose_y**2)
-            self.alpha = -1*self.actualGrado + np.arctan2(self.final_pose_y, self.final_pose_x)
+            self.rho = round (np.sqrt(self.final_pose_x**2 + self.final_pose_y**2),2)
+            self.alpha = round (-1*self.actualGrado + (np.arctan2(self.final_pose_y, self.final_pose_x))*180/np.pi,2)
             self.beta = self.errorTheta[-1]
 
         elif instance == 1:
-            self.rho = np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2)
+            self.rho = round(np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2),2)
             self.beta = self.errorTheta[-1]
 
         elif instance == 2:
-            self.rho = np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2)
-            self.alpha = -1*self.historicalPose_Theta[-1] + np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1])
+            self.rho =round( np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2),2)
+            self.alpha = round(-1*self.historicalPose_Theta[-1] + (np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1]))*180/np.pi , 2)
             self.beta = self.errorTheta[-1]
 
     def linear_trayectory(self):
         # Angular veocity definition and limit set
-        self.velW_frameR = self.K_rho*self.rho
-        if np.abs(velW_frameR) > np.pi:
-            velW_frameR = np.pi*np.sign(velW_frameR)
-
-        self.velocityR = (velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
-        self.velocityL = (-velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
+        self.PWMR = float(60)
+        self.PWML = float(60)
+        #print('PWM Derecha: ' + str(self.PWMR))
+        #print('PWM Izquierda: ' + str(self.PWML))
         
     
     def orientation_goal(self):
         # Angle diff calculation
-        self.delta_Theta = np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1])
+        self.delta_Theta = (np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1]))*180/np.pi
 
         # Angle correction base on the cuadrant
         if self.errorPos_y[-1] >= 0 and self.errorPos_x[-1] < 0:
-            self.delta_Theta += np.pi
+            self.delta_Theta += 180
         elif self.errorPos_y[-1] < 0 and self.errorPos_x[-1] < 0:
-            self.delta_Theta -= np.pi
+            self.delta_Theta -= 180
 
         # Variable control alpha update
-        self.alpha = self.delta_Theta - self.historicalPose_Theta
-
-        # Angular veocity definition and limit set
-        self.velW_frameR = self.K_alpha*self.alpha
-        if np.abs(velW_frameR) > np.pi:
-            velW_frameR = np.pi*np.sign(velW_frameR)
+        self.alpha = round( self.delta_Theta - self.historicalPose_Theta[-1],2)
 
         if self.delta_Theta >= 0:
             # Linear velocities calculation: CCW
-            self.velocityR = (velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
-            self.velocityL = (-velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
-        else:
+            self.PWMR = float(60)
+            self.PWML = float(-60)
+        if self.delta_Theta < 0:
             # Linear velocities calculation: CW
-            self.velocityR = (-velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
-            self.velocityL = (velW_frameR*self.wheel_separation)/(2*self.wheel_radius)
+            self.PWMR = float(-60)
+            self.PWML = float(60)
+
+        #print('PWM Derecha: ' + str(self.PWMR))
+        #print('PWM Izquierda: ' + str(self.PWML))
     
     def subscriber_callback_pos_final(self, msg):
         # Position goal
@@ -164,18 +188,9 @@ class navegacion(Node):
         self.errorPos_x.append(self.final_pose_x - self.actual_pos_x)
         self.errorPos_y.append(self.final_pose_y - self.actual_pos_y)
         self.errorTheta.append(self.final_pose_Theta - self.actualGrado)
-        print("x: "+ str(self.errorPos_x[-1]) +"\n")
-        print("y: "+ str(self.errorPos_y[-1])+"\n") 
-        print("ThetaZ: "+ str(self.errorTheta[-1])+"\n")
+        print("x_error: "+ str(self.errorPos_x[-1]) +"\n")
+        print("y_error: "+ str(self.errorPos_y[-1])+"\n") 
 
-
-    def conversionTwistPwm(self):
-        self.omega = (self.velocityR - self.velocityL)/self.wheel_separation
-        self.linear = (self.velocityR + self.velocityL)/2
-
-        self.PWMR = (1.0 * self.velLineal + self.velAngular * self.w / 2) * 255/self.max # conversion a pwm
-        self.PWML = (1.0 * self.velLineal - self.velAngular * self.w / 2) * 255/self.max # conversion a pwm
-    
     def euler_from_quaternion(self, x, y, z, w):
         """
         Convert a quaternion into euler angles (roll, pitch, yaw)
