@@ -24,6 +24,7 @@ setup(
           'mi_robot_pose = mi_robot_navegacion.mi_robot_pose:main',
           'navigation_test = mi_robot_navegacion.navigation_test:main',
           'Serial_proyecto= mi_robot_navegacion.Serial_proyecto:main',
+          'mi_robot_planeacion= mi_robot_navegacion.mi_robot_planeacion:main',
         ],
     },
 )
