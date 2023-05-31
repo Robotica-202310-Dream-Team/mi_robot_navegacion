@@ -21,7 +21,7 @@ class serialRaspESP(Node):
     def __init__(self):
 
         super().__init__('Serial_proyecto')
-        self.subscription = self.create_subscription(Float32MultiArray, 'robot_cmdVel', self.listener_callback_velocidad, 10)    
+        self.subscription = self.create_subscription(Float32MultiArray, 'robot_cmdVel', self.listener_callback_velocidad, 50)    
         print("Inicio del nodo que pasa la informacion de la Raspberry al Arduino")
         try:
             ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
