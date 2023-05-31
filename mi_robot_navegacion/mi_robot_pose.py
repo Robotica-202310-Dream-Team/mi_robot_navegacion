@@ -93,14 +93,14 @@ class navegacion(Node):
                 self.banderaOrientacion = False
                 self.control_variables(1)
                 self.orientation_goal()
-                #self.conversionTwistPwm()
+                
                 if abs(self.alpha) <= self.err_ang:
                     print("Ya se oriento")
                     self.PWMR = self.PWML
                     self.PWML = -self.PWMR
                     self.msg1.data = [float(self.PWML), float(self.PWMR)]
                     self.publisher_vel.publish(self.msg1)
-                    #time.sleep(2)
+                    time.sleep(5)
                     self.banderaOrientacion = True
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
@@ -108,24 +108,29 @@ class navegacion(Node):
             # Linear control
             if self.rho > self.err_dist and self.banderaOrientacion == True:
                 print("Entro al control de distancia")
+                self.position_error_new()
+                self.control_variables(2)
+                self.linear_trayectory()
+                self.msg1.data = [self.PWML, self.PWMR]
+                self.publisher_vel.publish(self.msg1)
+                
                 if abs(self.alpha) > self.err_ang:
                     self.banderaOrientacion = False
                 else:
                     self.position_error_new()
                     self.control_variables(2)
                     self.linear_trayectory()
-                    #self.conversionTwistPwm()
                     self.msg1.data = [self.PWML, self.PWMR]
                     self.publisher_vel.publish(self.msg1)
+
             elif self.rho <= self.err_dist:
-                self.banderaOrientacion = False
+                self.banderaOrientacion = True
                 self.PWML = 0.0
                 self.PWMR = 0.0
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
                 print("El robot ha llegado al destino")
 
-    
     def control_variables(self, instance):
         # Control variables actualization
         if instance == 0:
@@ -146,22 +151,17 @@ class navegacion(Node):
         # Angular veocity definition and limit set
         self.PWMR = float(60)
         self.PWML = float(60)
-        #print('PWM Derecha: ' + str(self.PWMR))
-        #print('PWM Izquierda: ' + str(self.PWML))
-        
     
     def orientation_goal(self):
         # Angle diff calculation
         self.delta_Theta = (np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1]))*180/np.pi
 
-        # Angle correction base on the cuadrant
-        if self.errorPos_y[-1] >= 0 and self.errorPos_x[-1] < 0:
-            self.delta_Theta += 180
-        elif self.errorPos_y[-1] < 0 and self.errorPos_x[-1] < 0:
-            self.delta_Theta -= 180
-
         # Variable control alpha update
         self.alpha = round( self.delta_Theta - self.historicalPose_Theta[-1],2)
+        if self.alpha < -180.0:
+            set.alpha += 360.0
+        if self.alpha > 180.0:
+            set.alpha -= 360.0
 
         if self.delta_Theta >= 0:
             # Linear velocities calculation: CCW
@@ -171,9 +171,6 @@ class navegacion(Node):
             # Linear velocities calculation: CW
             self.PWMR = float(-60)
             self.PWML = float(60)
-
-        #print('PWM Derecha: ' + str(self.PWMR))
-        #print('PWM Izquierda: ' + str(self.PWML))
     
     def subscriber_callback_pos_final(self, msg):
         # Position goal
@@ -182,7 +179,6 @@ class navegacion(Node):
         self.final_pose_Theta = 0
         self.llegoPosFinal = True
 
-    
     def position_error_new(self):
         # Error calculation and append
         self.errorPos_x.append(self.final_pose_x - self.actual_pos_x)
@@ -213,15 +209,12 @@ class navegacion(Node):
 
         return float(roll_x), float(pitch_y), float(yaw_z) # in radians
     
-
-
 def main(args=None):
     rclpy.init(args=args)
     mi_robot_pose=navegacion()
     rclpy.spin(mi_robot_pose)
     mi_robot_pose.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
