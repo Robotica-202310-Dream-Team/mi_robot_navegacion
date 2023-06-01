@@ -24,16 +24,17 @@ class planeacion(Node):
                                         depth=1)	
 		self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 50)
 		self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
-		scriptDir = os.path.dirname(__file__)
+		self.publisher= self.create_publisher(Float32MultiArray, 'ruta_coordenadas', 50)
 		ruta ="/home/sebastian/Uniandes202310/Robotica/proyecto_final/proyecto_final_ws/src/mi_robot_navegacion/mi_robot_navegacion/MapaRobotica.pgm"
 		self.x_inicial = 250
 		self.y_inicial = 250
+		self.msg1 = Float32MultiArray()
 		
 		#ruta = scriptDir + "/Mapa_Test_drive_3_mod.jpg"
 		self.gridmap = cv2.imread(ruta,0) 
 
 		# Taking a matrix of size 5 as the kernel
-		kernel = np.ones((90, 90), np.uint8)
+		kernel = np.ones((50, 50), np.uint8)
 		
 		# The first parameter is the original image,
 		# kernel is the matrix with which image is
@@ -53,7 +54,7 @@ class planeacion(Node):
 		self.PROB_FREE = 0.3
 		self.graph = self.gridmap2graph()
 		#print (f"graph  : {self.graph}")
-		print("* self.gridmap2graph")
+		print("* gridmap2graph")
 	def subscriber_callback_pos_actual(self, msg):
         # Actual position of the robot
 		self.x_inicial = round (msg.pose.pose.position.x*100,2 )
@@ -74,7 +75,7 @@ class planeacion(Node):
 		#declaración coordenadas iniciales y finales
 		
 		coordenates_array = []
-		coordenates_array.append([self.x_inicial,self.y_inicial])
+		#coordenates_array.append([self.x_inicial,self.y_inicial])
 
 		self.START  =  tuple([self.y_inicial,self.x_inicial])
 		self.GOAL   = tuple([self.y_final,self.x_final])
@@ -351,10 +352,14 @@ class planeacion(Node):
 			print("*Finalizado")
 			ruta2 = []
 			for i in range (len(ruta)):
-				ruta2.append(ruta[i][0])
-				ruta2.append(ruta[i][1])
-			r = numpy.array (ruta2,dtype = numpy.float32)
-			print (f"ruta=  {r}")
+				ruta2.append(float(ruta[i][0]))
+				ruta2.append(float(ruta[i][1]))
+			#r = numpy.array (ruta2,dtype = numpy.float32)
+			print (ruta2)
+			self.msg1.data = ruta2
+			self.publisher.publish(self.msg1)
+		
+			print (f"ruta=  {self.msg1.data }")
 
 
 			scriptDir = os.path.dirname(__file__)
