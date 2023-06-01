@@ -23,7 +23,7 @@ class navegacion(Node):
         print ("Inicia el nodo que da la posicion de la camara en tiempo real")
         self.max = 1
         # PID constants
-        self.err_ang = 28
+        self.err_ang = 15
         self.err_dist = 5
         self.K_rho = 0.15 
         self.K_alpha = 0.5 
@@ -75,7 +75,7 @@ class navegacion(Node):
         self.actualGrado = self.actualGrado2[2]*180/(np.pi)
         print("x_actual: "+ str(self.actual_pos_x) +"\n")
         print("y_actual: "+ str(self.actual_pos_y)+"\n") 
-        print("ThetaZ_actual: "+ str(self.actualGrado)+"\n")
+        #print("ThetaZ_actual: "+ str(self.actualGrado)+"\n")
         
         # Historical position append
         self.historicalPose_x.append(self.actual_pos_x)
@@ -100,7 +100,7 @@ class navegacion(Node):
                     self.PWML = -self.PWMR
                     self.msg1.data = [float(self.PWML), float(self.PWMR)]
                     self.publisher_vel.publish(self.msg1)
-                    time.sleep(5)
+                    time.sleep(0.5)
                     self.banderaOrientacion = True
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
@@ -149,8 +149,8 @@ class navegacion(Node):
 
     def linear_trayectory(self):
         # Angular veocity definition and limit set
-        self.PWMR = float(60)
-        self.PWML = float(60)
+        self.PWMR = float(50)
+        self.PWML = float(50)
     
     def orientation_goal(self):
         # Angle diff calculation
@@ -159,18 +159,18 @@ class navegacion(Node):
         # Variable control alpha update
         self.alpha = round( self.delta_Theta - self.historicalPose_Theta[-1],2)
         if self.alpha < -180.0:
-            set.alpha += 360.0
+            self.alpha += 360.0
         if self.alpha > 180.0:
-            set.alpha -= 360.0
+            self.alpha -= 360.0
 
-        if self.delta_Theta >= 0:
+        if self.alpha >= 0:
             # Linear velocities calculation: CCW
-            self.PWMR = float(60)
-            self.PWML = float(-60)
-        if self.delta_Theta < 0:
+            self.PWMR = float(40)
+            self.PWML = float(0)
+        if self.alpha < 0:
             # Linear velocities calculation: CW
-            self.PWMR = float(-60)
-            self.PWML = float(60)
+            self.PWMR = float(0)
+            self.PWML = float(40)
     
     def subscriber_callback_pos_final(self, msg):
         # Position goal
@@ -184,8 +184,8 @@ class navegacion(Node):
         self.errorPos_x.append(self.final_pose_x - self.actual_pos_x)
         self.errorPos_y.append(self.final_pose_y - self.actual_pos_y)
         self.errorTheta.append(self.final_pose_Theta - self.actualGrado)
-        print("x_error: "+ str(self.errorPos_x[-1]) +"\n")
-        print("y_error: "+ str(self.errorPos_y[-1])+"\n") 
+        #print("x_error: "+ str(self.errorPos_x[-1]) +"\n")
+        #print("y_error: "+ str(self.errorPos_y[-1])+"\n") 
 
     def euler_from_quaternion(self, x, y, z, w):
         """
