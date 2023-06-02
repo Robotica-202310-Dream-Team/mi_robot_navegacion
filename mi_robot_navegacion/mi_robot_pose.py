@@ -21,7 +21,9 @@ class navegacion(Node):
 
     def __init__(self):
         print ("Inicia el nodo que da la posicion de la camara en tiempo real")
+        self.actual_point = 0
         self.max = 1
+
         # PID constants
         self.err_ang = 15
         self.err_dist = 5
@@ -84,6 +86,8 @@ class navegacion(Node):
 
         # Historical error calculation
         if self.llegoPosFinal == True:
+            self.final_pose_x = msg.data[self.actual_point][self.actual_point]/4
+            self.final_pose_y = msg.data[self.actual_point][self.actual_point]/4
             self.position_error_new()
             print(f"Alpha =  {self.alpha}  rho= {self.rho}" )
             
@@ -91,6 +95,7 @@ class navegacion(Node):
             if  abs(self.alpha) > self.err_ang:
                 self.position_error_new() 
                 self.banderaOrientacion = False
+                self.banderaThetaGoal = False
                 self.control_variables(1)
                 self.orientation_goal()
                 
@@ -123,13 +128,31 @@ class navegacion(Node):
                     self.msg1.data = [self.PWML, self.PWMR]
                     self.publisher_vel.publish(self.msg1)
 
-            elif self.rho <= self.err_dist:
+            elif self.rho > self.err_dist:
                 self.banderaOrientacion = True
                 self.PWML = 0.0
                 self.PWMR = 0.0
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
                 print("El robot ha llegado al destino")
+                time.sleep(3)
+
+            # Orientation control
+            if self.rho > self.err_dist and self.banderaThetaGoal == False:
+                print("Entro al control de orientacion final")
+                self.position_error_new()
+                self.control_variables(2)
+                self.orientation_goal_final()
+
+            elif self.rho < self.err_dist:
+                self.banderaThetaGoal = True
+                self.PWML = 0.0
+                self.PWMR = 0.0
+                self.msg1.data = [float(self.PWML), float(self.PWMR)]
+                self.publisher_vel.publish(self.msg1)
+                print("El robot se oriento")
+                self.new_goal()
+                time.sleep(3)
 
     def control_variables(self, instance):
         # Control variables actualization
@@ -166,17 +189,47 @@ class navegacion(Node):
         if self.alpha >= 0:
             # Linear velocities calculation: CCW
             self.PWMR = float(40)
-            self.PWML = float(0)
+            self.PWML = float(-40)
         if self.alpha < 0:
+            # Linear velocities calculation: CW
+            self.PWMR = float(-40)
+            self.PWML = float(40)
+
+    def orientation_goal_final(self):
+        # Angle diff calculation
+        self.delta_Theta_final = self.errorTheta[-1]
+
+        # Variable control alpha update
+        self.beta = round( self.delta_Theta_final - self.historicalPose_Theta[-1], 2)
+        if self.beta < -180.0:
+            self.beta += 360.0
+        if self.beta > 180.0:
+            self.beta -= 360.0
+
+        if self.beta >= 0:
+            # Linear velocities calculation: CCW
+            self.PWMR = float(40)
+            self.PWML = float(0)
+        if self.beta < 0:
             # Linear velocities calculation: CW
             self.PWMR = float(0)
             self.PWML = float(40)
+
+    def new_goal(self):
+        if self.actual_point == self.len_positions_array-1:
+            print("Se llego al punto final")
+        else:
+            print("Nuevo punto actualizado")
+            self.actual_point += 1
+            self.banderaOrientacion = False
+            self.banderaThetaGoal = False
+            
     
     def subscriber_callback_pos_final(self, msg):
         # Position goal
-        self.final_pose_x = msg.data[0]/4
-        self.final_pose_y = msg.data[1]/4
         self.final_pose_Theta = 0
+        self.positions_array = msg.data
+        self.len_positions_array = len(msg.data)
         self.llegoPosFinal = True
 
     def position_error_new(self):
