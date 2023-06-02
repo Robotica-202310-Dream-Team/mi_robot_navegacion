@@ -27,6 +27,7 @@ class navegacion(Node):
         # PID constants
         self.err_ang = 15
         self.err_dist = 5
+        self.err_ori = 7
         self.K_rho = 0.15 
         self.K_alpha = 0.5 
         self.K_beta = 0.0
@@ -113,6 +114,7 @@ class navegacion(Node):
             # Linear control
             if self.rho > self.err_dist and self.banderaOrientacion == True:
                 print("Entro al control de distancia")
+                self.banderaLlego = False
                 self.position_error_new()
                 self.control_variables(2)
                 self.linear_trayectory()
@@ -128,8 +130,9 @@ class navegacion(Node):
                     self.msg1.data = [self.PWML, self.PWMR]
                     self.publisher_vel.publish(self.msg1)
 
-            elif self.rho > self.err_dist:
+            elif self.rho < self.err_dist:
                 self.banderaOrientacion = True
+                self.banderaLlego = True
                 self.PWML = 0.0
                 self.PWMR = 0.0
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
@@ -138,13 +141,13 @@ class navegacion(Node):
                 time.sleep(3)
 
             # Orientation control
-            if self.rho > self.err_dist and self.banderaThetaGoal == False:
+            if self.beta > self.err_ori and self.banderaThetaGoal == False and self.banderaLlego == True:
                 print("Entro al control de orientacion final")
                 self.position_error_new()
                 self.control_variables(2)
                 self.orientation_goal_final()
 
-            elif self.rho < self.err_dist:
+            elif self.beta < self.err_ori and self.banderaThetaGoal == False:
                 self.banderaThetaGoal = True
                 self.PWML = 0.0
                 self.PWMR = 0.0
@@ -224,7 +227,6 @@ class navegacion(Node):
             self.banderaOrientacion = False
             self.banderaThetaGoal = False
             
-    
     def subscriber_callback_pos_final(self, msg):
         # Position goal
         self.final_pose_Theta = 0
