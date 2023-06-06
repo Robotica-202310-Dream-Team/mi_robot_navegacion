@@ -26,17 +26,10 @@ class navegacion(Node):
         self.actual_point = 1
 
         # PID constants
-        self.err_ang = 15
+        self.err_ang = 10
         self.err_dist = 5
         self.err_ori = 7
-        self.K_rho = 0.15 
-        self.K_alpha = 0.5 
-        self.K_beta = 0.0
-
         self.banderaOrientacion = False
-        # Geometrical conditions
-        self.wheel_radius = 6.5/100
-        self.wheel_separation = 19.5/100
 
         # Variables for monitor the position error
         self.errorPos_x = []
@@ -57,9 +50,9 @@ class navegacion(Node):
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
         
-        self.subscriber_move = self.create_subscription(Bool, 'flag_move' ,self.subscriber_callback_flag_move, 50)
-        self.publisher_arrive = self.create_publisher(Bool, 'destination_flag' , 50)
-        self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 50)
+        self.subscriber_move = self.create_subscription(Bool, 'movement_flag' ,self.subscriber_callback_flag_move, 50)
+        self.publisher_arrive = self.create_publisher(Bool, 'movement_confirmation' , 50)
+        self.sub_pos_final = self.create_subscription(Float32MultiArray, 'trayectoria' ,self.subscriber_callback_pos_final, 5)
         self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
         self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
         self.msg1 = Float32MultiArray()
@@ -106,11 +99,11 @@ class navegacion(Node):
                 
                 if abs(self.alpha) <= self.err_ang:
                     print("Ya se oriento") 
-                    self.PWMR = self.PWML
-                    self.PWML = -self.PWMR
+                    self.PWMR = 0
+                    self.PWML = 0
                     self.msg1.data = [float(self.PWML), float(self.PWMR)]
                     self.publisher_vel.publish(self.msg1)
-                    time.sleep(0.5)
+                    time.sleep(1)
                     self.banderaOrientacion = True
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
@@ -127,13 +120,7 @@ class navegacion(Node):
                 
                 if abs(self.alpha) > self.err_ang:
                     self.banderaOrientacion = False
-                else:
-                    self.position_error_new()
-                    self.control_variables(2)
-                    self.linear_trayectory()
-                    self.msg1.data = [self.PWML, self.PWMR]
-                    self.publisher_vel.publish(self.msg1)
-
+                
             elif self.rho < self.err_dist:
                 self.banderaOrientacion = True
                 self.banderaLlego = True
@@ -196,10 +183,10 @@ class navegacion(Node):
         if self.alpha >= 0:
             # Linear velocities calculation: CCW
             self.PWMR = float(40)
-            self.PWML = float(-40)
+            self.PWML = float(0)
         if self.alpha < 0:
             # Linear velocities calculation: CW
-            self.PWMR = float(-40)
+            self.PWMR = float(0)
             self.PWML = float(40)
 
     def orientation_goal_final(self):
@@ -246,7 +233,6 @@ class navegacion(Node):
 
     def subscriber_callback_flag_move(self, msg):
         self.movementFlag = msg.data
-
 
     def position_error_new(self):
         # Error calculation and append
