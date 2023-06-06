@@ -4,7 +4,6 @@ import time
 import serial
 import json
 from rclpy.node import Node
-#from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String, Float32MultiArray, Bool
 import numpy as np
@@ -21,8 +20,10 @@ class navegacion(Node):
 
     def __init__(self):
         print ("Inicia el nodo que da la posicion de la camara en tiempo real")
-        self.actual_point = 0
         self.max = 1
+        self.flagOver = False
+        self.movementFlag = False
+        self.actual_point = 1
 
         # PID constants
         self.err_ang = 15
@@ -56,9 +57,10 @@ class navegacion(Node):
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
         
+        self.subscriber_move = self.create_subscription(Bool, 'flag_move' ,self.subscriber_callback_flag_move, 50)
+        self.publisher_arrive = self.create_publisher(Bool, 'destination_flag' , 50)
         self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 50)
         self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
-        self.publisher_ = self.create_publisher(Bool, 'llego', 50)
         self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
         self.msg1 = Float32MultiArray()
         self.control_variables(0)
@@ -86,9 +88,11 @@ class navegacion(Node):
         self.historicalPose_Theta.append(self.actualGrado)
 
         # Historical error calculation
-        if self.llegoPosFinal == True:
-            self.final_pose_x = msg.data[self.actual_point][self.actual_point]/4
-            self.final_pose_y = msg.data[self.actual_point][self.actual_point]/4
+        if self.llegoPosFinal == True and self.movementFlag == True:
+            self.publisher_arrive.publish(self.flagOver)
+            self.final_pose_x = msg.data[3*(self.actual_point-1)]
+            self.final_pose_y = msg.data[3*(self.actual_point-1) + 1]
+            self.final_pose_Theta = msg.data[3*(self.actual_point-1) + 2]
             self.position_error_new()
             print(f"Alpha =  {self.alpha}  rho= {self.rho}" )
             
@@ -101,7 +105,7 @@ class navegacion(Node):
                 self.orientation_goal()
                 
                 if abs(self.alpha) <= self.err_ang:
-                    print("Ya se oriento")
+                    print("Ya se oriento") 
                     self.PWMR = self.PWML
                     self.PWML = -self.PWMR
                     self.msg1.data = [float(self.PWML), float(self.PWMR)]
@@ -219,7 +223,14 @@ class navegacion(Node):
             self.PWML = float(40)
 
     def new_goal(self):
-        if self.actual_point == self.len_positions_array-1:
+        if self.actual_point == self.len_positions_array:
+            self.actual_point = 1
+            self.flagOver = True
+            self.publisher_arrive.publish(self.flagOver)
+            while self.flagOver == True:
+                if self.movementFlag == False:
+                    self.flagOver = False
+                    break
             print("Se llego al punto final")
         else:
             print("Nuevo punto actualizado")
@@ -229,10 +240,13 @@ class navegacion(Node):
             
     def subscriber_callback_pos_final(self, msg):
         # Position goal
-        self.final_pose_Theta = 0
         self.positions_array = msg.data
-        self.len_positions_array = len(msg.data)
+        self.len_positions_array = len(msg.data)/3
         self.llegoPosFinal = True
+
+    def subscriber_callback_flag_move(self, msg):
+        self.movementFlag = msg.data
+
 
     def position_error_new(self):
         # Error calculation and append
