@@ -24,7 +24,7 @@ class planeacion(Node):
                                         depth=1)	
 		self.sub_pos_final = self.create_subscription(Float32MultiArray, 'posicion_final' ,self.subscriber_callback_pos_final, 50)
 		self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
-		self.publisher= self.create_publisher(Float32MultiArray, 'ruta_coordenadas', 50)
+		self.publisher= self.create_publisher(Float32MultiArray, 'trayectoria', 50)
 		ruta ="/home/sebastian/Uniandes202310/Robotica/proyecto_final/proyecto_final_ws/src/mi_robot_navegacion/mi_robot_navegacion/MapaRobotica.pgm"
 		self.x_inicial = 250
 		self.y_inicial = 250

@@ -26,6 +26,7 @@ setup(
           'Serial_proyecto= mi_robot_navegacion.Serial_proyecto:main',
           'mi_robot_planeacion= mi_robot_navegacion.mi_robot_planeacion:main',
           'retroalimentacion_robot= mi_robot_navegacion.retroalimentacion_robot:main',
+          'mi_robot_naveacion_percepcion= mi_robot_navegacion.mi_robot_naveacion_percepcion:main',
         ],
     },
 )
