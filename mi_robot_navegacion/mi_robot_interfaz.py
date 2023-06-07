@@ -42,9 +42,6 @@ class Robot_interface(Node):
         self.pos_x_total = [0]
         self.pos_y_total = [0]
         self.poses_new  = [0,0]
-        #self.publisher_ = self.create_publisher(String, 'turtle_bot_image', 10) Publica un string
-        #self.publisher_ = self.create_publisher(Image, 'robot_image', 10) #publica una imagen
-        #self.cli = self.create_client(ReadTxt, 'read_txt')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
@@ -53,31 +50,20 @@ class Robot_interface(Node):
 
         self.br = CvBridge()
         self.mapa_base =  255*np.ones((500,500),dtype=np.uint8)
-        #self.req = ReadTxt.Request()
         root = tk.Tk()
-        root.title("Robot_interface Parlington")
-        self.canvas = tk.Canvas(master = root,highlightbackground="#351f54", width = 600, height = 600)
-        self.t = turtle.RawTurtle(self.canvas)
-        self.canvas.pack()
-        self.t.pencolor("black")
-        self.nick = tk.StringVar()
-        tk.Button(master = root, background="#c35bcf" , text = "Teleoperar",font="helvetica 10", command = self.boton1).pack(side = tk.LEFT)
-        tk.Button(master = root, background="#c35bcf", text = "Screenshoot",font="helvetica 10", command=self.boton2).pack(side=tk.LEFT)
-        tk.Button(master = root, background="#c35bcf", text = "Replicar recorrido",font="helvetica 10", command=self.boton3).pack(side = tk.LEFT)
-        tk.Button(master = root, background="#c35bcf", text = "Guardar teleop",font="helvetica 10", command=self.boton4).pack(side = tk.LEFT)
-        #tk.Button(master = root, background="#c35bcf", text = "Funcioanlidad 5",font="helvetica 10", command=self.boton5).pack(side = tk.LEFT)
-        tk.Label(root,background="#c35bcf",  text="File name:",font="helvetica 10").pack(side = tk.LEFT,)
-        self.insert_nick = tk.Entry(root, background="#a5e1f2", width=20,  textvariable=self.nick).pack(side = tk.LEFT)
         
-        #tk.Label(master = root, text = "Label").pack(side = tk.LEFT)
-        #minimal_subscriber_publisher = MinimalPublisher_suscriber()
+        # Adjust size 
+	root.geometry("400x400")
+        root.title("Robot_interface navegation")
+        bg = PhotoImage(file = "mapa_final.png")
+    	
+    	# Show image using label
+	label1 = Label( root, image = bg)
+	label1.place(x = 0, y = 0)
+
         print ("minimal_subscriber_publisher")
-        #rclpy.spin(minimal_subscriber_publisher)
-        #minimal_subscriber_publisher.destroy_node()
-        #rclpy.shutdown()
         root.mainloop()
-        
-        #################################################################################################################################################33
+
     def send_request(self, txt):
         while not self.cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
@@ -90,7 +76,6 @@ class Robot_interface(Node):
         self.pos_x = round (msg.pose.pose.position.x*100,2 )
         self.pos_y = round (msg.pose.pose.position.y *100,2 )
         self.pos_z = round (msg.pose.pose.position.z *100,2 )
-        
         print (f"x = {self.pos_x} y = {self.pos_y} z = {self.pos_y}")
 
 
