@@ -24,10 +24,12 @@ class navegacion(Node):
         self.flagOver = False
         self.movementFlag = False
         self.actual_point = 1
+        self.banderaThetaGoal = 0
+        self.msgFlagOver = Bool()
 
         # PID constants
         self.err_ang = 10
-        self.err_dist = 5
+        self.err_dist = 2
         self.err_ori = 7
         self.banderaOrientacion = False
 
@@ -71,29 +73,28 @@ class navegacion(Node):
 
         self.actualGrado2 = self.euler_from_quaternion(self.actual_pos_ThetaX,self.actual_pos_ThetaY,self.actual_pos_ThetaZ,self.actual_pos_ThetaW)
         self.actualGrado = self.actualGrado2[2]*180/(np.pi)
-        print("x_actual: "+ str(self.actual_pos_x) +"\n")
-        print("y_actual: "+ str(self.actual_pos_y)+"\n") 
         #print("ThetaZ_actual: "+ str(self.actualGrado)+"\n")
         
         # Historical position append
         self.historicalPose_x.append(self.actual_pos_x)
         self.historicalPose_y.append(self.actual_pos_y)
         self.historicalPose_Theta.append(self.actualGrado)
-
+        
         # Historical error calculation
         if self.llegoPosFinal == True and self.movementFlag == True:
-            self.publisher_arrive.publish(self.flagOver)
-            self.final_pose_x = msg.data[3*(self.actual_point-1)]
-            self.final_pose_y = msg.data[3*(self.actual_point-1) + 1]
-            self.final_pose_Theta = msg.data[3*(self.actual_point-1) + 2]
+            self.msgFlagOver.data = self.flagOver
+            self.publisher_arrive.publish(self.msgFlagOver)
+            self.final_pose_x = self.positions_array[3*(self.actual_point-1)]
+            self.final_pose_y = self.positions_array[3*(self.actual_point-1) + 1]
+            self.final_pose_Theta = self.positions_array[3*(self.actual_point-1) + 2]
             self.position_error_new()
-            print(f"Alpha =  {self.alpha}  rho= {self.rho}" )
+            print(f"Alpha =  {self.alpha}  Rho = {self.rho}  Betha = {self.beta}")
             
             # Orientation control
             if  abs(self.alpha) > self.err_ang:
-                self.position_error_new() 
+                print ("control de orientation")
+                self.position_error_new()
                 self.banderaOrientacion = False
-                self.banderaThetaGoal = False
                 self.control_variables(1)
                 self.orientation_goal()
                 
@@ -103,16 +104,15 @@ class navegacion(Node):
                     self.PWML = 0
                     self.msg1.data = [float(self.PWML), float(self.PWMR)]
                     self.publisher_vel.publish(self.msg1)
-                    time.sleep(1)
                     self.banderaOrientacion = True
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
                 
             # Linear control
-            if self.rho > self.err_dist and self.banderaOrientacion == True:
+            elif self.rho > self.err_dist and self.banderaOrientacion == True:
                 print("Entro al control de distancia")
-                self.banderaLlego = False
                 self.position_error_new()
+                self.banderaLlego = False
                 self.control_variables(2)
                 self.linear_trayectory()
                 self.msg1.data = [self.PWML, self.PWMR]
@@ -121,31 +121,14 @@ class navegacion(Node):
                 if abs(self.alpha) > self.err_ang:
                     self.banderaOrientacion = False
                 
-            elif self.rho < self.err_dist:
+            elif self.rho < self.err_dist and  self.banderaLlego == False: 
                 self.banderaOrientacion = True
                 self.banderaLlego = True
                 self.PWML = 0.0
                 self.PWMR = 0.0
                 self.msg1.data = [float(self.PWML), float(self.PWMR)]
                 self.publisher_vel.publish(self.msg1)
-                print("El robot ha llegado al destino")
-                time.sleep(3)
-
-            # Orientation control
-            if self.beta > self.err_ori and self.banderaThetaGoal == False and self.banderaLlego == True:
-                print("Entro al control de orientacion final")
-                self.position_error_new()
-                self.control_variables(2)
-                self.orientation_goal_final()
-
-            elif self.beta < self.err_ori and self.banderaThetaGoal == False:
-                self.banderaThetaGoal = True
-                self.PWML = 0.0
-                self.PWMR = 0.0
-                self.msg1.data = [float(self.PWML), float(self.PWMR)]
-                self.publisher_vel.publish(self.msg1)
-                print("El robot se oriento")
-                self.new_goal()
+                print("El robot ha llegado al punto")
                 time.sleep(3)
 
     def control_variables(self, instance):
@@ -157,17 +140,22 @@ class navegacion(Node):
 
         elif instance == 1:
             self.rho = round(np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2),2)
-            self.beta = self.errorTheta[-1]
+            self.beta = self.final_pose_Theta - self.actualGrado 
 
         elif instance == 2:
             self.rho =round( np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2),2)
             self.alpha = round(-1*self.historicalPose_Theta[-1] + (np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1]))*180/np.pi , 2)
-            self.beta = self.errorTheta[-1]
+            self.beta = self.final_pose_Theta - self.actualGrado 
+
+        elif instance == 3:
+            self.rho =round( np.sqrt(self.errorPos_x[-1]**2 + self.errorPos_y[-1]**2),2)
+            self.alpha = round(-1*self.historicalPose_Theta[-1] + (np.arctan2(self.errorPos_y[-1], self.errorPos_x[-1]))*180/np.pi , 2)
+            self.beta = self.final_pose_Theta - self.actualGrado 
 
     def linear_trayectory(self):
         # Angular veocity definition and limit set
-        self.PWMR = float(50)
-        self.PWML = float(50)
+        self.PWMR = float(38)
+        self.PWML = float(38)
     
     def orientation_goal(self):
         # Angle diff calculation
@@ -175,19 +163,20 @@ class navegacion(Node):
 
         # Variable control alpha update
         self.alpha = round( self.delta_Theta - self.historicalPose_Theta[-1],2)
-        if self.alpha < -180.0:
-            self.alpha += 360.0
-        if self.alpha > 180.0:
-            self.alpha -= 360.0
+        if self.alpha <= -180:
+            self.alpha += 360   
+
+        if self.alpha >= 180:
+            self.alpha -= 360   
 
         if self.alpha >= 0:
             # Linear velocities calculation: CCW
-            self.PWMR = float(40)
-            self.PWML = float(0)
+            self.PWMR = float(38)
+            self.PWML = float(-38)
         if self.alpha < 0:
             # Linear velocities calculation: CW
-            self.PWMR = float(0)
-            self.PWML = float(40)
+            self.PWMR = float(-38)
+            self.PWML = float(38)
 
     def orientation_goal_final(self):
         # Angle diff calculation
@@ -203,27 +192,30 @@ class navegacion(Node):
         if self.beta >= 0:
             # Linear velocities calculation: CCW
             self.PWMR = float(40)
-            self.PWML = float(0)
+            self.PWML = float(-30)
         if self.beta < 0:
             # Linear velocities calculation: CW
-            self.PWMR = float(0)
+            self.PWMR = float(-30)
             self.PWML = float(40)
 
     def new_goal(self):
         if self.actual_point == self.len_positions_array:
             self.actual_point = 1
             self.flagOver = True
-            self.publisher_arrive.publish(self.flagOver)
+            self.msgFlagOver.data = self.flagOver
+            self.publisher_arrive.publish(self.msgFlagOver)
             while self.flagOver == True:
+                print ("Se finalizo la trayectoria de puntos")
                 if self.movementFlag == False:
                     self.flagOver = False
                     break
             print("Se llego al punto final")
         else:
-            print("Nuevo punto actualizado")
             self.actual_point += 1
+            self.banderaLlego = 0
             self.banderaOrientacion = False
-            self.banderaThetaGoal = False
+            print("Nuevo punto actualizado")
+
             
     def subscriber_callback_pos_final(self, msg):
         # Position goal
@@ -239,8 +231,6 @@ class navegacion(Node):
         self.errorPos_x.append(self.final_pose_x - self.actual_pos_x)
         self.errorPos_y.append(self.final_pose_y - self.actual_pos_y)
         self.errorTheta.append(self.final_pose_Theta - self.actualGrado)
-        #print("x_error: "+ str(self.errorPos_x[-1]) +"\n")
-        #print("y_error: "+ str(self.errorPos_y[-1])+"\n") 
 
     def euler_from_quaternion(self, x, y, z, w):
         """
