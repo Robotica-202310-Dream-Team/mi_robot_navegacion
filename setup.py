@@ -27,6 +27,7 @@ setup(
           'mi_robot_planeacion= mi_robot_navegacion.mi_robot_planeacion:main',
           'retroalimentacion_robot= mi_robot_navegacion.retroalimentacion_robot:main',
           'mi_robot_naveacion_percepcion= mi_robot_navegacion.mi_robot_naveacion_percepcion:main',
+          'mi_robot_naveacion_manipulacion= mi_robot_navegacion.mi_robot_naveacion_manipulacion:main',
         ],
     },
 )

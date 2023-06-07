@@ -20,86 +20,110 @@ class navegacion(Node):
 
     def __init__(self):
         print ("Inicia el nodo que da la posicion de la camara en tiempo real")
-        self.ruta = 1
+
         self.pwl = 0
         self.pwr = 0
-        self.msg2 = Bool()
+        self.msgr = Bool()
+        self.msgs = Bool()
         self.msg1 = Float32MultiArray()
-        self.time_analisis = 20
+        self.time_analisis = 10
         self.param = float(input("pwm: "))
-        super().__init__('mi_robot_naveacion_percepcion')
+        
+        super().__init__('mi_robot_naveacion_manipulacion')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
     
-        self.publisher_foto = self.create_publisher(Bool, 'tomar_foto', 50)
-        self.subscriber_banner = self.create_subscription(Float32MultiArray, 'banners_list', self.callback_banner, 50)
+        self.publisher_recoger = self.create_publisher(Bool, 'pick_up', 50)
+        self.publisher_soltar = self.create_publisher(Bool, 'release', 50)
+        self.subscriber_banner = self.create_subscription(Bool, 'panel_flag', self.callback_flag, 50)
         self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
         
-    def callback_banner(self, msg):
-        self.banners = Float32MultiArray()
-        self.banners.data = msg.data
+    def callback_flag(self, msg):
+        self.ruta = msg.data
         self.mover()
 
     def mover(self):
-        if self.ruta == 1:
+        if self.ruta == True:
             # Panel 2
-            self.forward(30)
-            time.sleep(3)
-            self.girol(2)
-            if self.banners.data[0] == 2.0 or self.banners.data[1] == 2.0:
-                self.msg2.data = True
-                self.publisher_foto.publish(self.msg2)
-                time.sleep(self.time_analisis)
-                self.msg2.data = False
-                self.publisher_foto.publish(self.msg2)
-            else:
-                time.sleep(5)
-            print("Termino banner 2")
-
-            # Panel 3 
-            self.giror(4)
-            time.sleep(3)
             self.forward(35)
             time.sleep(3)
-            self.giror(10)
+            self.giror(15)
             time.sleep(3)
-            self.backward(10)
+            self.forward(10)
             time.sleep(3)
-            self.giror(3)
+            self.giror(75)
             time.sleep(3)
-            if self.banners.data[0] == 3.0 or self.banners.data[1] == 3.0:
-                self.msg2.data = True
-                self.publisher_foto.publish(self.msg2)
-                time.sleep(self.time_analisis)
-                self.msg2.data = False
-                self.publisher_foto.publish(self.msg2)
-            else:
-                time.sleep(5)
-            print("Termino banner 3")
-
-            # Panel 1
-            self.forward(20)
+            self.backward(13)
+            print("recoger")            
+            self.msgr.data = True
+            self.publisher_recoger.publish(self.msgr)
+            self.msgs.data = False
+            self.publisher_recoger.publish(self.msgs)
+            time.sleep(self.time_analisis)
+            time.sleep(3)
+            self.giror(9)
+            time.sleep(3)
+            self.forward(50)
+            time.sleep(3)
+            self.giror(50)
+            time.sleep(3)
+            self.forward(5)
+            time.sleep(3)
+            print("soltar")
+            self.msgr.data = False
+            self.publisher_recoger.publish(self.msgr)
+            self.msgs.data = True
+            self.publisher_recoger.publish(self.msgs)
+            time.sleep(self.time_analisis)
+            self.giror(40)
+            time.sleep(3)
+            self.forward(60)
+            time.sleep(3)
+            self.giror(15)
+            time.sleep(3)
+            print("Termino recorrido1 ")
+    
+        elif self.ruta == False:
+            # Panel 2
+            self.forward(100)
+            time.sleep(3)
+            self.giror(50)
+            time.sleep(3)
+            self.backward(13)
+            time.sleep(3)
+            print("recoger")            
+            self.msgr.data = True
+            self.publisher_recoger.publish(self.msgr)
+            self.msgs.data = False
+            self.publisher_recoger.publish(self.msgs)
+            time.sleep(self.time_analisis)
+            self.giror(40)
+            time.sleep(3)
+            self.forward(100)
             time.sleep(3)
             self.giror(20)
             time.sleep(3)
-            # self.forward(5)
-            # time.sleep(3)
-            #self.giror(6)
-            # time.sleep(3)
-            self.backward(10)
-            time.sleep(3)
-            if self.banners.data[0] == 1.0 or self.banners.data[1] == 1.0:
-                self.msg2.data = True
-                self.publisher_foto.publish(self.msg2)
-                time.sleep(self.time_analisis)
-                self.msg2.data = False
-                self.publisher_foto.publish(self.msg2)
 
-            else:
-                time.sleep(5)
-            self.ruta = 0
-            print("Termino banner 1")
+            print("soltar")
+            self.msgr.data = False
+            self.publisher_recoger.publish(self.msgr)
+            self.msgs.data = True
+            self.publisher_recoger.publish(self.msgs)
+            '''
+            self.forward(20)
+            time.sleep(3)
+            self.giror(6)
+            time.sleep(3)
+            self.forward(20)
+            time.sleep(3)
+            self.msgr.data = False
+            self.publisher_recoger.publish(self.msgr)
+            self.msgs.data = True
+            self.publisher_recoger.publish(self.msgs)
+            time.sleep(self.time_analisis)
+            '''
+            print("Termino recorrido1 ")
 
     def forward(self, n):
         
