@@ -23,48 +23,41 @@ class navegacion(Node):
         self.ruta = 1
         self.pwl = 0
         self.pwr = 0
+        self.msg2 = Bool()
+        self.msg1 = Float32MultiArray()
+        self.time_analisis = 10
         self.param = float(input("pwm: "))
         super().__init__('mi_robot_naveacion_percepcion')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                         history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                         depth=1)
-        
-        #self.subscriber_move = self.create_subscription(Bool, 'movement_flag' ,self.subscriber_callback_flag_move, 50)
-        self.publisher_arrive = self.create_publisher(Bool, 'movement_confirmation' , 50)
-        #self.sub_pos_final = self.create_subscription(Float32MultiArray, 'trayectoria' ,self.subscriber_callback_pos_final, 5)
-        self.sub_pos_actual = self.create_subscription(Odometry, 'camera/pose/sample' ,self.subscriber_callback_pos_actual, qos_profile=qos_policy)
-        self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
-        self.msg1 = Float32MultiArray()
-        
-        #self.subscription = self.create_subscription(Odometry, 'camera/pose/sample', self.listener_callback, 10)
     
-    def subscriber_callback_pos_actual(self, msg):
-        # Actual position of the robot
-        self.actual_pos_x = round (msg.pose.pose.position.x*100,2 )
-        self.actual_pos_y = round (msg.pose.pose.position.y *100,2 )
-        self.actual_pos_ThetaX = round (msg.pose.pose.orientation.x,2 )
-        self.actual_pos_ThetaY = round (msg.pose.pose.orientation.y,2 )
-        self.actual_pos_ThetaZ = round (msg.pose.pose.orientation.z,2 )
-        self.actual_pos_ThetaW = round (msg.pose.pose.orientation.w,2 )
-
-        self.actualGrado2 = self.euler_from_quaternion(self.actual_pos_ThetaX,self.actual_pos_ThetaY,self.actual_pos_ThetaZ,self.actual_pos_ThetaW)
-        self.actualGrado = self.actualGrado2[2]*180/(np.pi)
+        self.publisher_foto = self.create_publisher(Bool, 'tomar_foto', 50)
+        self.subscriber_banner = self.create_subscription(Float32MultiArray, 'banners_list', self.callback_banner, 50)
+        self.publisher_vel = self.create_publisher(Float32MultiArray, 'robot_cmdVel', 50)
+        
+    def callback_banner(self, msg):
+        self.banners = Float32MultiArray()
+        self.banners.data = msg.data
         self.mover()
 
-
     def mover(self):
-        if self.ruta ==1:
-            ###########################33
-            # panel 2
-            print ("n = 30")
+        if self.ruta == 1:
+            # Panel 2
             self.forward(30)
             time.sleep(3)
-            print ("giro izquierda n = 2")
             self.girol(2)
-            time.sleep(10)
-            ##################################
-            # panel 3 
-            print ("giro derecha n = 5")
+            if self.banners.data[0] == 2.0 or self.banners.data[1] == 2.0:
+                self.msg2.data = True
+                self.publisher_foto.publish(self.msg2)
+                time.sleep(self.time_analisis)
+                self.msg2.data = False
+                self.publisher_foto.publish(self.msg2)
+            else:
+                time.sleep(5)
+            print("Termino banner 2")
+
+            # Panel 3 
             self.giror(4)
             time.sleep(3)
             self.forward(35)
@@ -75,36 +68,35 @@ class navegacion(Node):
             time.sleep(3)
             self.giror(3)
             time.sleep(3)
-            # panel 1
+            if self.banners.data[0] == 3.0 or self.banners.data[1] == 3.0:
+                self.msg2.data = True
+                self.publisher_foto.publish(self.msg2)
+                time.sleep(self.time_analisis)
+                self.msg2.data = False
+                self.publisher_foto.publish(self.msg2)
+            else:
+                time.sleep(5)
+            print("Termino banner 3")
+
+            # Panel 1
             self.forward(30)
             time.sleep(3)
             self.giror(15)
             time.sleep(3)
             self.backward(10)
             time.sleep(10)
-            #self.giror(5)
-            #time.sleep(3)
-            #print ("n = 30")
-            #self.forward(30)
-            #time.sleep(3)
-            #print ("giro derecha n = 6")
-            #self.giror(6)
-            #time.sleep(3)
-            #print ("Atrás 15")
-            #self.backward(15)
-            #time.sleep(3)
-            #print ("giro derecha n = 3")
-            #self.giror(3)
-            #time.sleep(10)
-            ##############################
+            if self.banners.data[0] == 1.0 or self.banners.data[1] == 1.0:
+                self.msg2.data = True
+                self.publisher_foto.publish(self.msg2)
+                time.sleep(self.time_analisis)
+                self.msg2.data = False
+                self.publisher_foto.publish(self.msg2)
 
-            
-            
-            
-        elif self.ruta ==2:
-            pass
-        elif self.ruta ==3:
-            pass
+            else:
+                time.sleep(5)
+            self.ruta = 0
+            print("Termino banner 1")
+
     def forward(self, n):
         
         i = 0
