@@ -26,7 +26,7 @@ class navegacion(Node):
         self.msgr = Bool()
         self.msgs = Bool()
         self.msg1 = Float32MultiArray()
-        self.time_analisis = 10
+        self.time_analisis = 7
         self.param = float(input("pwm: "))
         
         super().__init__('mi_robot_naveacion_manipulacion')
@@ -46,43 +46,46 @@ class navegacion(Node):
     def mover(self):
         if self.ruta == True:
             # Panel 2
-            self.forward(35)
+            self.forward(16)
             time.sleep(3)
-            self.giror(15)
+            self.girol(16)
             time.sleep(3)
-            self.forward(10)
-            time.sleep(3)
-            self.giror(75)
-            time.sleep(3)
-            self.backward(13)
-            print("recoger")            
+            #self.giror(35)
+
+            # Recoger
+            #time.sleep  
             self.msgr.data = True
             self.publisher_recoger.publish(self.msgr)
-            self.msgs.data = False
-            self.publisher_recoger.publish(self.msgs)
             time.sleep(self.time_analisis)
-            time.sleep(3)
-            self.giror(9)
-            time.sleep(3)
-            self.forward(50)
-            time.sleep(3)
-            self.giror(50)
-            time.sleep(3)
-            self.forward(5)
-            time.sleep(3)
-            print("soltar")
             self.msgr.data = False
             self.publisher_recoger.publish(self.msgr)
+            self.giror(17)
+            time.sleep(3)
+            self.forward(1)
+            time.sleep(3)
+            #self.giror(20)
+            #time.sleep(3)
+            #self.forward(1)
+            #time.sleep(3)
+            #self.giror(18)
+            #time.sleep(3)
+            #self.forward(1)
+            #time.sleep(3)
+
+            # Soltar
+            time.sleep(1) 
             self.msgs.data = True
-            self.publisher_recoger.publish(self.msgs)
+            self.publisher_soltar.publish(self.msgs)
             time.sleep(self.time_analisis)
-            self.giror(40)
-            time.sleep(3)
-            self.forward(60)
-            time.sleep(3)
-            self.giror(15)
-            time.sleep(3)
-            print("Termino recorrido1 ")
+            self.msgs.data = False
+            self.publisher_soltar.publish(self.msgs)
+            #self.giror(40)
+            #time.sleep(3)
+            #self.forward(60)
+            #time.sleep(3)
+            #self.giror(15)
+            #time.sleep(3)
+            print("Termino recorrido 1")
     
         elif self.ruta == False:
             # Panel 2
@@ -92,11 +95,14 @@ class navegacion(Node):
             time.sleep(3)
             self.backward(13)
             time.sleep(3)
-            print("recoger")            
+
+            # Recoger
+            
             self.msgr.data = True
             self.publisher_recoger.publish(self.msgr)
             self.msgs.data = False
-            self.publisher_recoger.publish(self.msgs)
+            self.publisher_soltar.publish(self.msgs)
+            time.sleep(self.time_analisis)
             time.sleep(self.time_analisis)
             self.giror(40)
             time.sleep(3)
@@ -105,11 +111,11 @@ class navegacion(Node):
             self.giror(20)
             time.sleep(3)
 
-            print("soltar")
+            # Soltar
             self.msgr.data = False
             self.publisher_recoger.publish(self.msgr)
             self.msgs.data = True
-            self.publisher_recoger.publish(self.msgs)
+            self.publisher_soltar.publish(self.msgs)
             '''
             self.forward(20)
             time.sleep(3)
@@ -149,6 +155,9 @@ class navegacion(Node):
             print(i)
             i+= 1
     def giror(self, n):
+
+        self.msg1.data = [float(0),float(0) ]
+        self.publisher_vel.publish(self.msg1)
         i = 0
         while i < n:
             self.pwl = self.param
@@ -158,7 +167,13 @@ class navegacion(Node):
             time.sleep(0.05)
             print(i)
             i+= 1
+        
+        self.msg1.data = [float(0),float(0) ]
+        self.publisher_vel.publish(self.msg1)
     def girol(self, n):
+
+        self.msg1.data = [float(0),float(0) ]
+        self.publisher_vel.publish(self.msg1)
         i = 0
         while i < n:
             self.pwl = -self.param
@@ -168,6 +183,9 @@ class navegacion(Node):
             time.sleep(0.05)
             print(i)
             i+= 1
+        
+        self.msg1.data = [float(0),float(0) ]
+        self.publisher_vel.publish(self.msg1)
 
     def euler_from_quaternion(self, x, y, z, w):
         """
